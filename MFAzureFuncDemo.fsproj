@@ -14,5 +14,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
+    <Compile Include="HttpTrigger.fs" />
   </ItemGroup>
 </Project>
