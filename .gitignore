@@ -263,3 +263,8 @@ paket-files/
 __pycache__/
 *.pyc
 .ionide
+
+# App
+AssemblyInfo.fs
+deploy/
+deploy.zip
