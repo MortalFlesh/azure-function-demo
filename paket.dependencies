@@ -1,0 +1,22 @@
+group Func
+    source https://api.nuget.org/v3/index.json
+    framework: netcoreapp3.1
+    storage: none
+
+    nuget FSharp.Core
+
+group Build
+    source https://api.nuget.org/v3/index.json
+    framework: netstandard2.0
+    storage: none
+
+    nuget FSharp.Core
+    nuget Fake.Core.Environment
+    nuget Fake.Core.Target
+    nuget Fake.Core.Trace
+    nuget Fake.DotNet.AssemblyInfoFile
+    nuget Fake.DotNet.Cli
+    nuget Fake.IO.FileSystem
+    nuget Fake.IO.Zip
+    nuget Fake.Tools.Git
+    github CompositionalIT/fshelpers src/FsHelpers/ArmHelper/ArmHelper.fs

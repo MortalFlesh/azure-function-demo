@@ -24,7 +24,7 @@ module HttpTrigger =
         async {
             log.LogInformation("F# HTTP trigger function processed a request.")
 
-            let nameOpt = 
+            let nameOpt =
                 if req.Query.ContainsKey(Name) then
                     Some(req.Query.[Name].[0])
                 else
@@ -42,8 +42,8 @@ module HttpTrigger =
                    match data with
                    | null -> ""
                    | nc -> nc.Name
-            
-            let responseMessage =             
+
+            let responseMessage =
                 if (String.IsNullOrWhiteSpace(name)) then
                     "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
                 else
