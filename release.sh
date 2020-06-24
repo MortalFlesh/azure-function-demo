@@ -23,7 +23,7 @@ TENANT_ID="3d8f4aa4-6211-4c04-ba38-a6198f655cb0"
 # Command #
 #=========#
 
-./fake.sh build --target appservice \
+./fake.sh build --target AzureFunction \
     -e subscriptionId="$SUBSCRIPTION_ID" \
     -e clientId="$CLIENT_ID" \
     -e tenantId="$TENANT_ID" \

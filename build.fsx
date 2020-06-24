@@ -232,7 +232,7 @@ Target.create "AssemblyInfo" (fun _ ->
             (getAssemblyInfoAttributes projectName)
         )
 
-    !! "src/**/*.fsproj"
+    !! "./*.fsproj"
     |> Seq.map getProjectDetails
     |> Seq.iter (fun (_, _, folderName, attributes) ->
         AssemblyInfoFile.createFSharp (folderName </> "AssemblyInfo.fs") attributes
@@ -297,7 +297,7 @@ let mutable deploymentOutputs : ArmOutput option = None
 Target.create "ArmTemplate" (fun _ ->
     let environment = Environment.environVarOrDefault "environment" (Guid.NewGuid().ToString().ToLower().Split '-' |> Array.head)
     let armTemplate = @"arm-template.json"
-    let resourceGroupName = "safe-" + environment   // todo change
+    let resourceGroupName = "azure-fun-" + environment   // todo change
 
     let authCtx =
         // You can safely replace these with your own subscription and client IDs hard-coded into this script.
@@ -376,7 +376,6 @@ open Fake.Core.TargetOperators
 
 "SafeClean"
     ==> "AssemblyInfo"
-    ==> "InstallClient"
     ==> "Build"
     ==> "Lint"
     ==> "Tests"
@@ -384,8 +383,7 @@ open Fake.Core.TargetOperators
     ==> "ArmTemplate"
     ==> "AzureFunction"
 
-"SafeClean"
-    ==> "InstallClient"
+"Build"
     ==> "Run"
 
 Target.runOrDefaultWithArguments "Build"
