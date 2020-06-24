@@ -12,8 +12,23 @@ dotnet new func --language F# --name MFAzureFuncDemo
 dotnet new http --language F# --name HttpTrigger
 ```
 
+## Locally
 
-## Deploy
+### Tools
 ```
 npm install -g azure-functions-core-tools
+```
+
+### Run
+> Did not work for F#?
+
+```
+func start
+```
+
+## Deploy
+> Fill credentials
+
+```
+./release.sh
 ```
