@@ -1,6 +1,9 @@
 Azure Function Demo
 ===================
 
+[![Build Status](https://dev.azure.com/MortalFlesh/azure-function-demo/_apis/build/status/MortalFlesh.azure-function-demo)](https://dev.azure.com/MortalFlesh/azure-function-demo/_build/latest?definitionId=1)
+[![Build Status](https://api.travis-ci.com/MortalFlesh/azure-function-demo.svg?branch=master)](https://travis-ci.com/MortalFlesh/azure-function-demo)
+
 > Demo repository for trying out Azure Functions with F#
 
 Inspired by https://www.aaron-powell.com/posts/2020-01-13-creating-azure-functions-in-fsharp/
