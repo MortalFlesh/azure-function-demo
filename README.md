@@ -4,6 +4,7 @@ Azure Function Demo
 > Demo repository for trying out Azure Functions with F#
 
 Inspired by https://www.aaron-powell.com/posts/2020-01-13-creating-azure-functions-in-fsharp/
+More information https://docs.microsoft.com/cs-cz/azure/azure-functions/functions-reference-fsharp
 
 ## Azure function
 
