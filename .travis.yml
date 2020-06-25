@@ -1,0 +1,13 @@
+language: csharp
+dist: bionic
+sudo: required
+mono: none
+
+os:
+  - linux
+  #- osx  # disabled - it is not working with 3.1 atm
+
+dotnet: 3.1
+
+script:
+  - ./fake.sh build target tests no-clean no-lint
