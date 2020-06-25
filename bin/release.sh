@@ -15,6 +15,9 @@ LOCATION="westeurope"
 # Azure #
 #=======#
 
+echo "Fill values first, then remove this line and the exit!"
+exit
+
 SUBSCRIPTION_ID="<fill>"
 CLIENT_ID="<fill>"
 TENANT_ID="<fill>"
