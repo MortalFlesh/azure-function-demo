@@ -1,0 +1,55 @@
+[
+    {
+        "data": {
+            "type": "normalization",
+            "attributes": {
+                "contact": {
+                    "email": "jan.novak@seznam.cz",
+                    "phone": "+420 603 445 332"
+                }
+            }
+        }
+    },
+    {
+        "data": {
+            "type": "normalization",
+            "attributes": {
+                "contact": {
+                    "email": "jan.novak@seznam.cz"
+                }
+            }
+        }
+    },
+    {
+        "data": {
+            "type": "normalization",
+            "attributes": {
+                "contact": {
+                    "phone": "+420 603 445 332"
+                }
+            }
+        }
+    },
+    {
+        "data": {
+            "type": "normalization",
+            "attributes": {
+                "contact": {
+                    "email": "jan.novak@seznam.cz",
+                    "phone": null
+                }
+            }
+        }
+    },
+    {
+        "data": {
+            "type": "normalization",
+            "attributes": {
+                "contact": {
+                    "email": null,
+                    "phone": "+420 603 445 332"
+                }
+            }
+        }
+    }
+]

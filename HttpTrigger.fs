@@ -8,46 +8,110 @@ open Microsoft.Azure.WebJobs.Extensions.Http
 open Microsoft.AspNetCore.Http
 open Newtonsoft.Json
 open Microsoft.Extensions.Logging
+open FSharp.Data
 
 module HttpTrigger =
-    // Define a nullable container to deserialize into.
-    [<AllowNullLiteral>]
-    type NameContainer() =
-        member val Name = "" with get, set
+    type private RequestDto = JsonProvider<"schema/request.json", SampleIsList=true>
 
-    // For convenience, it's better to have a central place for the literal.
-    [<Literal>]
-    let Name = "name"
+    module private Json =
+        open Newtonsoft.Json.Serialization
+
+        let private options () =
+            JsonSerializerSettings (
+                ContractResolver =
+                    DefaultContractResolver (
+                        NamingStrategy = SnakeCaseNamingStrategy()
+                    )
+            )
+
+        let serialize obj =
+            JsonConvert.SerializeObject (obj, options())
+
+    type ResponseDto = {
+        Data: DataDto
+    }
+
+    and DataDto = {
+        Type: string
+        Id: string
+        Attributes: AttributesDto
+    }
+
+    and AttributesDto = {
+        Contact: NormalizedContactDto
+    }
+
+    and NormalizedContactDto = {
+        Email: string
+        Phone: string
+    }
+
+    type ContactDto = {
+        Email: string option
+        Phone: string option
+    }
+
+    type Normalize = Normalize of (string -> string)
+
+    module Normalize =
+        let removeSpaces = Normalize (fun s -> s.Replace(" ", ""))
+        let lowerCase = Normalize (fun s -> s.ToLower())
+        let phoneCode = Normalize (id) (* todo - replace ^00420 -> +420 (jen na zacatku) *)
+
+        let normalize normalizations input =
+            normalizations
+            |> List.fold (fun normalized (Normalize normalize) -> normalize normalized) input
+
+        let email =
+            normalize [
+                removeSpaces
+                lowerCase
+            ]
+
+        let phone =
+            normalize [
+                removeSpaces
+                lowerCase
+                phoneCode
+            ]
 
     [<FunctionName("HttpTrigger")>]
     let run ([<HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)>]req: HttpRequest) (log: ILogger) =
         async {
             log.LogInformation("F# HTTP trigger function processed a request.")
-
-            let nameOpt =
-                if req.Query.ContainsKey(Name) then
-                    Some(req.Query.[Name].[0])
-                else
-                    None
-
+(*
+            match req.Headers.TryGetValue "Content-Type" with
+            | true, v -> if v. = "application/vnd.api+json" then ()
+            | _ -> ()
+ *)
             use stream = new StreamReader(req.Body)
             let! reqBody = stream.ReadToEndAsync() |> Async.AwaitTask
 
-            let data = JsonConvert.DeserializeObject<NameContainer>(reqBody)
+            let request = reqBody |> RequestDto.Parse
 
-            let name =
-                match nameOpt with
-                | Some n -> n
-                | None ->
-                   match data with
-                   | null -> ""
-                   | nc -> nc.Name
+            let contact = {
+                Email = request.Data.Attributes.Contact.Email
+                Phone = request.Data.Attributes.Contact.Phone
+            }
 
-            let responseMessage =
-                if (String.IsNullOrWhiteSpace(name)) then
-                    "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                else
-                    "Hello, " +  name + ". This HTTP triggered function executed successfully."
+            let response = {
+                Data = {
+                    Type = "normalization"
+                    Id = Guid.NewGuid() |> string
+                    Attributes = {
+                        Contact = {
+                            Email = contact.Email |> Option.map Normalize.email |> Option.defaultValue null
+                            Phone = contact.Phone |> Option.map Normalize.phone |> Option.defaultValue null
+                        }
+                    }
+                }
+            }
 
-            return OkObjectResult(responseMessage) :> IActionResult
-        } |> Async.StartAsTask
+            let response = OkObjectResult(response |> Json.serialize)
+
+            response.ContentTypes.Clear()
+            response.ContentTypes.Add("application/vnd.api+json")
+
+            return response :> IActionResult
+        }
+        |> Async.StartAsTask

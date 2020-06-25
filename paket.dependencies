@@ -4,6 +4,7 @@ group Func
     storage: none
 
     nuget FSharp.Core
+    nuget FSharp.Data ~> 3
 
 group Build
     source https://api.nuget.org/v3/index.json

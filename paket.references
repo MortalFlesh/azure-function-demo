@@ -1,2 +1,3 @@
 group Func
     FSharp.Core
+    FSharp.Data
