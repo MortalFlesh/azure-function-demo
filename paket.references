@@ -1,3 +1,4 @@
 group Func
     FSharp.Core
     FSharp.Data
+    libphonenumber-csharp

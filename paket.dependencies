@@ -5,6 +5,7 @@ group Func
 
     nuget FSharp.Core
     nuget FSharp.Data ~> 3
+    nuget libphonenumber-csharp ~> 8.12
 
 group Build
     source https://api.nuget.org/v3/index.json
