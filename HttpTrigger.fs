@@ -228,7 +228,7 @@ module HttpTrigger =
 
             let responseBody = {
                 Data = {
-                    Type = "normalization"
+                    Type = "normalizations"
                     Id = Guid.NewGuid() |> string
                     Attributes = {
                         Contact = {

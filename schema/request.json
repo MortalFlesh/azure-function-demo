@@ -1,7 +1,7 @@
 [
     {
         "data": {
-            "type": "normalization",
+            "type": "normalizations",
             "attributes": {
                 "contact": {
                     "email": "jan.novak@seznam.cz",
@@ -12,7 +12,7 @@
     },
     {
         "data": {
-            "type": "normalization",
+            "type": "normalizations",
             "attributes": {
                 "contact": {
                     "email": "jan.novak@seznam.cz"
@@ -22,7 +22,7 @@
     },
     {
         "data": {
-            "type": "normalization",
+            "type": "normalizations",
             "attributes": {
                 "contact": {
                     "phone": "+420 603 445 332"
@@ -32,7 +32,7 @@
     },
     {
         "data": {
-            "type": "normalization",
+            "type": "normalizations",
             "attributes": {
                 "contact": {
                     "email": "jan.novak@seznam.cz",
@@ -43,7 +43,7 @@
     },
     {
         "data": {
-            "type": "normalization",
+            "type": "normalizations",
             "attributes": {
                 "contact": {
                     "email": null,
