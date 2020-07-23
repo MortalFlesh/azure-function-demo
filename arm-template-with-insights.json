@@ -14,7 +14,8 @@
         "prefix": "[concat('fun-', variables('environment'))]",
         "appServicePlan": "[concat(variables('prefix'), '-web-host')]",
         "web": "[concat(variables('prefix'), '-web')]",
-        "storage": "[concat('fun', variables('environment'), 'storage')]"
+        "storage": "[concat('fun', variables('environment'), 'storage')]",
+        "insights": "[concat(variables('prefix'), '-insights')]"
     },
     "resources": [
         {
@@ -54,6 +55,20 @@
             }
         },
         {
+            "type": "Microsoft.Insights/components",
+            "kind": "functionapp",
+            "name": "[variables('insights')]",
+            "location": "[parameters('location')]",
+            "apiVersion": "2014-04-01",
+            "scale": null,
+            "properties": {
+                "ApplicationId": "[variables('web')]",
+                "Request_Source": "IbizaWebAppExtensionCreate",
+                "name": "[variables('insights')]"
+            },
+            "tags": {}
+        },
+        {
             "type": "Microsoft.Web/sites",
             "name": "[variables('web')]",
             "apiVersion": "2018-11-01",
@@ -62,7 +77,8 @@
             "tags": {},
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlan'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts/', variables('storage'))]"
+                "[resourceId('Microsoft.Storage/storageAccounts/', variables('storage'))]",
+                "[resourceId('Microsoft.Insights/components/', variables('insights'))]"
             ],
             "properties": {
                 "name": "[variables('web')]",
@@ -76,6 +92,10 @@
                         {
                             "name": "FUNCTIONS_WORKER_RUNTIME",
                             "value": "dotnet"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(concat('Microsoft.Insights/components/', variables('insights'))).InstrumentationKey]"
                         },
                         {
                             "name": "STORAGE_CONNECTIONSTRING",
@@ -97,7 +117,18 @@
                 },
                 "hostingEnvironment": "[variables('appServicePlan')]",
                 "clientAffinityEnabled": true
-            }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2018-02-01",
+                    "name": "Microsoft.ApplicationInsights.AzureWebSites",
+                    "type": "siteextensions",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/sites/', variables('web'))]"
+                    ],
+                    "properties": {}
+                }
+            ]
         }
     ],
     "outputs": {
