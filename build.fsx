@@ -1,10 +1,18 @@
-#r "paket: groupref build //"
-#load "./.fake/build.fsx/intellisense.fsx"
+#load ".fake/build.fsx/intellisense.fsx"
 
-#if !FAKE
-#r "netstandard"
-#r "Facades/netstandard" // https://github.com/ionide/ionide-vscode-fsharp/issues/839#issuecomment-396296095
-#endif
+// ========================================================================================================
+// === F# / Azure function ======================================================================== 2.0.0 =
+// --------------------------------------------------------------------------------------------------------
+// Options:
+//  - no-clean   - disables clean of dirs in the first step (required on CI)
+//  - no-lint    - lint will be executed, but the result is not validated
+// --------------------------------------------------------------------------------------------------------
+// Table of contents:
+//      1. Information about project, configuration
+//      2. Utilities, DotnetCore functions
+//      3. FAKE targets
+//      4. FAKE targets hierarchy
+// ========================================================================================================
 
 open System
 
@@ -19,47 +27,30 @@ open Cit.Helpers.Arm
 open Cit.Helpers.Arm.Parameters
 open Microsoft.Azure.Management.ResourceManager.Fluent.Core
 
-type ToolDir =
-    /// Global tool dir must be in PATH - ${PATH}:/root/.dotnet/tools
-    | Global
-    /// Just a dir name, the location will be used as: ./{LocalDirName}
-    | Local of string
-
-// ========================================================================================================
-// === F# / Azure function ======================================================================== 1.0.0 =
-// --------------------------------------------------------------------------------------------------------
-// Options:
-//  - no-lint    - lint will be executed, but the result is not validated
-// --------------------------------------------------------------------------------------------------------
-// Table of contents:
-//      1. Information about project, configuration
-//      2. Utilities, DotnetCore functions
-//      3. FAKE targets
-//      4. FAKE targets hierarchy
-// ========================================================================================================
-
 // --------------------------------------------------------------------------------------------------------
 // 1. Information about the project to be used at NuGet and in AssemblyInfo files and other FAKE configuration
 // --------------------------------------------------------------------------------------------------------
 
 let project = "Azure Function Demo"
 let summary = "Demo for azure function"
+let releaseDir = Path.getFullName "./deploy"
 
-let version =
-    "RELEASE_NOTES.md"
-    |> System.IO.File.ReadAllLines
-    |> Seq.tryPick (fun l -> if l.StartsWith "##" && not (l.Contains "Unreleased") then Some l else None)
-    |> Option.bind (fun l -> match Text.RegularExpressions.Regex.Match(l, @"(\d+\.\d+\.\d+){1}") with m when m.Success -> Some m.Value | _ -> None)
-    |> Option.defaultValue "0.0.0"
+let changeLog = None
 let gitCommit = Information.getCurrentSHA1(".")
 let gitBranch = Information.getBranchName(".")
 
-let toolsDir = Global
+[<RequireQualifiedAccess>]
+module ProjectSources =
+    let release =
+        !! "./*.fsproj"
+        ++ "src/**/*.fsproj"
 
-Target.initEnvironment ()
+    let tests =
+        !! "tests/**/*.fsproj"
 
-let funcPath = Path.getFullName "."
-let deployDir = Path.getFullName "./deploy"
+    let all =
+        release
+        ++ "tests/**/*.fsproj"
 
 // --------------------------------------------------------------------------------------------------------
 // 2. Utilities, DotnetCore functions, etc.
@@ -108,78 +99,47 @@ module private Utils =
         then Trace.tracefn "Skipped ..."
         else action p
 
-module private DotnetCore =
-    let run cmd workingDir =
-        let options =
-            DotNet.Options.withWorkingDirectory workingDir
-            >> DotNet.Options.withRedirectOutput true
+    let createProcess exe arg dir =
+        CreateProcess.fromRawCommandLine exe arg
+        |> CreateProcess.withWorkingDirectory dir
+        |> CreateProcess.ensureExitCode
 
-        DotNet.exec options cmd ""
-
-    let runOrFail cmd workingDir =
-        run cmd workingDir
-        |> tee (fun result ->
-            if result.ExitCode <> 0 then failwithf "'dotnet %s' failed in %s" cmd workingDir
-        )
+    let run proc arg dir =
+        proc arg dir
+        |> Proc.run
         |> ignore
 
-    let runInRoot cmd = run cmd "."
-    let runInRootOrFail cmd = runOrFail cmd "."
+    let orFail = function
+        | Error e -> raise e
+        | Ok ok -> ok
 
-    let installOrUpdateTool toolDir tool =
-        let toolCommand action =
-            match toolDir with
-            | Global -> sprintf "tool %s --global %s" action tool
-            | Local dir -> sprintf "tool %s --tool-path ./%s %s" action dir tool
+    let envVar name =
+        if Environment.hasEnvironVar(name)
+            then Environment.environVar(name) |> Some
+            else None
 
-        match runInRoot (toolCommand "install") with
-        | { ExitCode = code } when code <> 0 ->
-            match runInRoot (toolCommand "update") with
-            | { ExitCode = code } when code <> 0 -> Trace.tracefn "Warning: Install and update of %A has failed." tool
-            | _ -> ()
-        | _ -> ()
+    let stringToOption = function
+        | null | "" -> None
+        | string -> Some string
 
-    let execute command args (dir: string) =
-        let cmd =
-            sprintf "%s/%s"
-                (dir.TrimEnd('/'))
-                command
+    [<RequireQualifiedAccess>]
+    module Option =
+        let mapNone f = function
+            | Some v -> v
+            | None -> f None
 
-        let processInfo = System.Diagnostics.ProcessStartInfo(cmd)
-        processInfo.RedirectStandardOutput <- true
-        processInfo.RedirectStandardError <- true
-        processInfo.UseShellExecute <- false
-        processInfo.CreateNoWindow <- true
-        processInfo.Arguments <- args |> String.concat " "
-
-        use proc =
-            new System.Diagnostics.Process(
-                StartInfo = processInfo
-            )
-        if proc.Start() |> not then failwith "Process was not started."
-        proc.WaitForExit()
-
-        if proc.ExitCode <> 0 then failwithf "Command '%s' failed in %s." command dir
-        (proc.StandardOutput.ReadToEnd(), proc.StandardError.ReadToEnd())
-
-let envVar name =
-    if Environment.hasEnvironVar(name)
-        then Environment.environVar(name) |> Some
-        else None
-
-let stringToOption = function
-    | null | "" -> None
-    | string -> Some string
+        let bindNone f = function
+            | Some v -> Some v
+            | None -> f None
 
 [<RequireQualifiedAccess>]
-module Option =
-    let mapNone f = function
-        | Some v -> v
-        | None -> f None
+module Dotnet =
+    let dotnet = createProcess "dotnet"
 
-    let bindNone f = function
-        | Some v -> Some v
-        | None -> f None
+    let run command dir = try run dotnet command dir |> Ok with e -> Error e
+    let runInRoot command = run command "."
+    let runOrFail command dir = run command dir |> orFail
+    let runInRootOrFail command = run command "." |> orFail
 
 // --------------------------------------------------------------------------------------------------------
 // 3. Targets for FAKE
@@ -194,13 +154,23 @@ Target.create "Clean" (fun _ ->
 )
 
 Target.create "SafeClean" (fun _ ->
-    [ deployDir ]
+    [ releaseDir ]
     |> Shell.cleanDirs
 )
 
 Target.create "AssemblyInfo" (fun _ ->
     let getAssemblyInfoAttributes projectName =
         let now = DateTime.Now
+
+        let version =
+            changeLog
+            |> Option.bind (fun changeLog ->
+                changeLog
+                |> System.IO.File.ReadAllLines
+                |> Seq.tryPick (fun l -> if l.StartsWith "##" && not (l.Contains "Unreleased") then Some l else None)
+                |> Option.bind (fun l -> match Text.RegularExpressions.Regex.Match(l, @"(\d+\.\d+\.\d+){1}") with m when m.Success -> Some m.Value | _ -> None)
+            )
+            |> Option.defaultValue "0.0.0"
 
         let gitValue fallbackEnvironmentVariableNames initialValue =
             initialValue
@@ -222,7 +192,7 @@ Target.create "AssemblyInfo" (fun _ ->
             AssemblyInfo.Metadata("createdAt", now.ToString("yyyy-MM-dd HH:mm:ss"))
         ]
 
-    let getProjectDetails projectPath =
+    let getProjectDetails (projectPath: string) =
         let projectName = System.IO.Path.GetFileNameWithoutExtension(projectPath)
         (
             projectPath,
@@ -231,7 +201,7 @@ Target.create "AssemblyInfo" (fun _ ->
             (getAssemblyInfoAttributes projectName)
         )
 
-    !! "./*.fsproj"
+    ProjectSources.all
     |> Seq.map getProjectDetails
     |> Seq.iter (fun (_, _, folderName, attributes) ->
         AssemblyInfoFile.createFSharp (folderName </> "AssemblyInfo.fs") attributes
@@ -239,58 +209,44 @@ Target.create "AssemblyInfo" (fun _ ->
 )
 
 Target.create "Build" (fun _ ->
-    funcPath |> DotnetCore.runOrFail "build"
+    ProjectSources.all
+    |> Seq.iter (DotNet.build id)
 )
 
 Target.create "Lint" <| skipOn "no-lint" (fun _ ->
-    DotnetCore.installOrUpdateTool toolsDir "dotnet-fsharplint"
-
-    let checkResult (messages: string list) =
-        let rec check: string list -> unit = function
-            | [] -> failwithf "Lint does not yield a summary."
-            | head :: rest ->
-                if head.Contains "Summary" then
-                    match head.Replace("= ", "").Replace(" =", "").Replace("=", "").Replace("Summary: ", "") with
-                    | "0 warnings" -> Trace.tracefn "Lint: OK"
-                    | warnings -> failwithf "Lint ends up with %s." warnings
-                else check rest
-        messages
-        |> List.rev
-        |> check
-
-    !! "src/**/*.fsproj"
-    |> Seq.map (fun fsproj ->
-        match toolsDir with
-        | Global ->
-            DotnetCore.runInRoot (sprintf "fsharplint lint %s" fsproj)
-            |> fun (result: ProcessResult) -> result.Messages
-        | Local dir ->
-            DotnetCore.execute "dotnet-fsharplint" ["lint"; fsproj] dir
-            |> fst
-            |> tee (Trace.tracefn "%s")
-            |> String.split '\n'
-            |> Seq.toList
+    ProjectSources.all
+    ++ "./Build.fsproj"
+    |> Seq.iter (fun fsproj ->
+        match Dotnet.runInRoot (sprintf "fsharplint lint %s" fsproj) with
+        | Ok () -> Trace.tracefn "Lint %s is Ok" fsproj
+        | Error e -> raise e
     )
-    |> Seq.iter checkResult
 )
 
 Target.create "Tests" (fun _ ->
-    if !! "tests/*.fsproj" |> Seq.isEmpty
+    if ProjectSources.tests |> Seq.isEmpty
     then Trace.tracefn "There are no tests yet."
-    else DotnetCore.runOrFail "run" "tests"
+    else Dotnet.runOrFail "run" "tests"
+)
+
+Target.create "Release" (fun _ ->
+    releaseDir
+    |> sprintf "publish -c Release -o %s"
+    |> Dotnet.runInRootOrFail
+)
+
+Target.create "Watch" (fun _ ->
+    Dotnet.runInRootOrFail "watch run"
 )
 
 Target.create "Run" (fun _ ->
-    funcPath |> DotnetCore.runOrFail "watch run"
+    Dotnet.runInRootOrFail "run"
 )
 
-Target.create "Bundle" (fun _ ->
-    funcPath |> DotnetCore.runOrFail (sprintf "publish -c Release -o \"%s\"" deployDir)
-)
-
-type ArmOutput =
-    { WebAppName : ParameterValue<string>
-      WebAppPassword : ParameterValue<string> }
+type ArmOutput = {
+    WebAppName : ParameterValue<string>
+    WebAppPassword : ParameterValue<string>
+}
 let mutable deploymentOutputs : ArmOutput option = None
 
 Target.create "ArmTemplate" (fun _ ->
@@ -313,14 +269,17 @@ Target.create "ArmTemplate" (fun _ ->
 
     let deployment =
         let location = Environment.environVarOrDefault "location" Region.EuropeWest.Name
-        { DeploymentName = "AZfun-template-deploy"
-          ResourceGroup = New(resourceGroupName, Region.Create location)
-          ArmTemplate = IO.File.ReadAllText armTemplate
-          Parameters =
-              Simple
-                  [ "environment", ArmString environment
-                    "location", ArmString location ]
-          DeploymentMode = Incremental }
+        {
+            DeploymentName = "AZfun-template-deploy"
+            ResourceGroup = New(resourceGroupName, Region.Create location)
+            ArmTemplate = IO.File.ReadAllText armTemplate
+            Parameters =
+                Simple [
+                    "environment", ArmString environment
+                    "location", ArmString location
+                ]
+            DeploymentMode = Incremental
+        }
 
     deployment
     |> deployWithProgress authCtx
@@ -344,7 +303,7 @@ type TimeoutWebClient() =
 Target.create "AzureFunction" (fun _ ->
     let zipFile = "deploy.zip"
     IO.File.Delete zipFile
-    Zip.zip deployDir zipFile !!(deployDir + @"\**\**")
+    Zip.zip releaseDir zipFile !!(releaseDir + @"\**\**")
 
     let appName = deploymentOutputs.Value.WebAppName.value
     let appPassword = deploymentOutputs.Value.WebAppPassword.value
@@ -366,11 +325,11 @@ open Fake.Core.TargetOperators
     ==> "Build"
     ==> "Lint"
     ==> "Tests"
-    ==> "Bundle"
+    ==> "Release"
     ==> "ArmTemplate"
     ==> "AzureFunction"
 
 "Build"
-    ==> "Run"
+    ==> "Run" <=> "Watch"
 
 Target.runOrDefaultWithArguments "Build"
